@@ -67,6 +67,15 @@ button,input,textarea,select{font:inherit;color:inherit;}
 .script-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--rule);background:var(--surface-2);}
 .script-bar .tools{display:flex;gap:6px;flex-wrap:wrap;}
 .script-bar .btn{padding:6px 11px;font-size:14px;}
+.script-bar .btn:disabled{opacity:.45;cursor:default;background:var(--surface);}
+.proj-bar{background:var(--surface);}
+.proj-pick{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.proj-pick select{
+  min-width:220px;max-width:100%;border:1px solid var(--rule);border-radius:8px;padding:6px 10px;
+  background:var(--surface);font-weight:600;font-size:15px;
+}
+#saveState{color:var(--muted);font-size:14px;}
+#saveState.warn{color:var(--tally);font-weight:700;}
 textarea{
   display:block;width:100%;min-height:60vh;resize:vertical;border:0;padding:18px 20px;background:var(--surface);
   font-family:"Atkinson Hyperlegible",Verdana,Tahoma,sans-serif;font-size:17px;line-height:1.6;
@@ -168,10 +177,23 @@ summary{cursor:pointer;font-weight:700;}
 
   <div class="grid">
     <section class="script" aria-label="Script">
+      <div class="script-bar proj-bar">
+        <div class="proj-pick">
+          <label for="projSel"><strong>Saved scripts</strong></label>
+          <select id="projSel"></select>
+          <span id="saveState" aria-live="polite"></span>
+        </div>
+        <div class="tools">
+          <button class="btn" id="saveAsBtn" type="button">Save as new…</button>
+          <button class="btn" id="renameBtn" type="button">Rename</button>
+          <button class="btn" id="deleteBtn" type="button">Delete</button>
+        </div>
+      </div>
       <div class="script-bar">
         <strong>Script</strong>
         <div class="tools">
           <button class="btn" id="openBtn" type="button">Open .txt</button>
+          <button class="btn" id="dlBtn" type="button">Download .txt</button>
           <button class="btn" id="tidyBtn" type="button">Tidy pasted text</button>
           <button class="btn" id="clearBtn" type="button">Clear</button>
           <input type="file" id="fileIn" accept=".txt,.md,text/plain" hidden>
@@ -307,11 +329,20 @@ REPORTER: Our girls’ volleyball team wrapped up the regular season with a big 
 
 ANCHOR 1: That’s our show. Have a great week, Patriots!`;
 
-  const defaults = { script:SAMPLE, fontSize:72, speed:5, width:84, cue:33, mirror:false, flip:false, caps:false, countdown:true, fullscreen:true, theme:'auto' };
+  const defaults = { script:SAMPLE, fontSize:72, speed:5, width:84, cue:33, mirror:false, flip:false, caps:false, countdown:true, fullscreen:true, theme:'auto', projects:[], current:null };
   let S = Object.assign({}, defaults);
   try { const raw = localStorage.getItem(KEY); if (raw) Object.assign(S, JSON.parse(raw)); } catch(e){}
-  let saveTimer = null;
-  function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }, 250); }
+  if (!Array.isArray(S.projects)) S.projects = [];
+  S.projects = S.projects.filter(p => p && typeof p.id === 'string' && typeof p.name === 'string')
+    .map(p => ({ id:p.id, name:p.name, script: typeof p.script === 'string' ? p.script : '', updated:+p.updated || 0 }));
+  if (!S.projects.some(p => p.id === S.current)) S.current = null;
+  let saveTimer = null, saveFailed = false;
+  function writeNow(){
+    try { localStorage.setItem(KEY, JSON.stringify(S)); if (saveFailed){ saveFailed = false; showSaveState(); } }
+    catch(e){ saveFailed = true; showSaveState(); }
+  }
+  function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(writeNow, 250); }
+  window.addEventListener('pagehide', ()=>{ clearTimeout(saveTimer); writeNow(); });
 
   /* ---------- Theme ---------- */
   const themeBtn = $('#themeBtn');
@@ -328,7 +359,70 @@ ANCHOR 1: That’s our show. Have a great week, Patriots!`;
 
   /* ---------- Editor ---------- */
   const src = $('#src');
-  src.value = S.script;
+
+  /* ---------- Saved scripts ---------- */
+  const projSel = $('#projSel');
+  function cur(){ return S.projects.find(p => p.id === S.current) || null; }
+  function currentText(){ const p = cur(); return p ? p.script : S.script; }
+  function storeText(v){
+    const p = cur();
+    if (p){ p.script = v; p.updated = Date.now(); } else S.script = v;
+    save();
+  }
+  function showSaveState(){
+    const el = $('#saveState');
+    el.classList.toggle('warn', saveFailed);
+    el.textContent = saveFailed ? 'Couldn’t save: browser storage is full or blocked'
+      : cur() ? 'Changes save automatically' : 'Scratch pad: use “Save as new” to keep it';
+  }
+  function renderProjects(){
+    const list = S.projects.slice().sort((a,b)=> a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}));
+    projSel.innerHTML = '<option value="">Scratch pad (not saved)</option>' +
+      list.map(p => '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');
+    projSel.value = S.current || '';
+    $('#renameBtn').disabled = $('#deleteBtn').disabled = !cur();
+    showSaveState();
+  }
+  function newId(){ return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+  function addProject(name, text){
+    const p = { id:newId(), name:name.trim().slice(0,80), script:text, updated:Date.now() };
+    S.projects.push(p); S.current = p.id;
+    src.value = text; save(); renderProjects(); updateStats();
+  }
+  function askName(msg, def){
+    const n = prompt(msg, def);
+    return n && n.trim() ? n.trim() : null;
+  }
+  projSel.addEventListener('change', ()=>{
+    S.current = projSel.value || null;
+    src.value = currentText(); save(); renderProjects(); updateStats();
+  });
+  $('#saveAsBtn').addEventListener('click', ()=>{
+    const def = 'Show ' + new Date().toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+    const name = askName('Name this script:', def);
+    if (name) addProject(name, src.value);
+  });
+  $('#renameBtn').addEventListener('click', ()=>{
+    const p = cur(); if (!p) return;
+    const name = askName('Rename script:', p.name);
+    if (name){ p.name = name.slice(0,80); save(); renderProjects(); }
+  });
+  $('#deleteBtn').addEventListener('click', ()=>{
+    const p = cur(); if (!p) return;
+    if (!confirm('Delete “' + p.name + '”? This can’t be undone.')) return;
+    S.projects = S.projects.filter(x => x.id !== p.id); S.current = null;
+    src.value = S.script; save(); renderProjects(); updateStats();
+  });
+  $('#dlBtn').addEventListener('click', ()=>{
+    const p = cur();
+    const base = (p ? p.name : 'script').replace(/[\\/:*?"<>|]+/g,'-');
+    const url = URL.createObjectURL(new Blob([src.value], {type:'text/plain;charset=utf-8'}));
+    const a = document.createElement('a'); a.href = url; a.download = base + '.txt';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 1000);
+  });
+
+  src.value = currentText();
   function updateStats(){
     const t = src.value;
     const who = detectSpeakers(t);
@@ -345,7 +439,8 @@ ANCHOR 1: That’s our show. Have a great week, Patriots!`;
     const names = [...who.values()].map(v => v.name);
     $('#stWho').textContent = names.length ? 'Speakers: ' + names.join(', ') : '';
   }
-  src.addEventListener('input', ()=>{ S.script = src.value; save(); updateStats(); });
+  src.addEventListener('input', ()=>{ storeText(src.value); updateStats(); });
+  renderProjects();
   updateStats();
 
   $('#tidyBtn').addEventListener('click', ()=>{
@@ -353,15 +448,16 @@ ANCHOR 1: That’s our show. Have a great week, Patriots!`;
       .replace(/\r\n?/g,'\n').replace(/\t/g,' ').replace(/\u00a0/g,' ')
       .replace(/[ ]+$/gm,'').replace(/^[ ]+/gm,'')
       .replace(/\n{3,}/g,'\n\n').trim();
-    S.script = src.value; save(); updateStats();
+    storeText(src.value); updateStats();
   });
   $('#clearBtn').addEventListener('click', ()=>{
-    if (!src.value.trim() || confirm('Clear the whole script?')) { src.value=''; S.script=''; save(); updateStats(); src.focus(); }
+    if (!src.value.trim() || confirm('Clear the whole script?')) { src.value=''; storeText(''); updateStats(); src.focus(); }
   });
   $('#openBtn').addEventListener('click', ()=> $('#fileIn').click());
   $('#fileIn').addEventListener('change', async e=>{
     const f = e.target.files[0]; if (!f) return;
-    src.value = await f.text(); S.script = src.value; save(); updateStats(); e.target.value='';
+    const text = await f.text(); e.target.value='';
+    addProject(f.name.replace(/\.(txt|md)$/i,'') || 'Opened script', text);
   });
 
   /* ---------- Settings ---------- */
@@ -519,7 +615,7 @@ ANCHOR 1: That’s our show. Have a great week, Patriots!`;
   }
 
   async function enter(){
-    S.script = src.value; save();
+    storeText(src.value);
     ptext.innerHTML = renderScript(src.value);
     pos = 0; elapsed = 0; playing = false; counting = false;
     P.classList.add('show'); P.setAttribute('aria-hidden','false'); open = true;
