@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PH1 Prompter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Barlow+Semi+Condensed:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#eef1ec; --surface:#ffffff; --surface-2:#e2e8e1; --ink:#142019; --muted:#56655b; --rule:#cbd5cc;
+  --green:#1d4d33; --green-hi:#256341; --on-green:#ffffff; --gold:#b8891a; --gold-soft:#f4e6bd; --tally:#e0392b;
+  --focus:#d4a72c;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#101713; --surface:#18211b; --surface-2:#202b24; --ink:#e8eee8; --muted:#9aaa9f; --rule:#2e3b33;
+    --green:#2f7a50; --green-hi:#38905e; --on-green:#ffffff; --gold:#e2b744; --gold-soft:#3a3115; --tally:#ff5a4a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101713; --surface:#18211b; --surface-2:#202b24; --ink:#e8eee8; --muted:#9aaa9f; --rule:#2e3b33;
+  --green:#2f7a50; --green-hi:#38905e; --on-green:#ffffff; --gold:#e2b744; --gold-soft:#3a3115; --tally:#ff5a4a;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*,*::before,*::after{box-sizing:inherit;}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Barlow Semi Condensed","Arial Narrow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:17px; line-height:1.45;
+}
+button,input,textarea,select{font:inherit;color:inherit;}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;}
+
+/* ---------- Editor ---------- */
+.app{max-width:1180px;margin:0 auto;padding:22px clamp(14px,3vw,30px) 48px;}
+.top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px;}
+.brand{display:flex;align-items:center;gap:12px;}
+.tally{width:14px;height:14px;border-radius:50%;background:var(--tally);box-shadow:0 0 0 4px rgba(224,57,43,.18);}
+.brand h1{margin:0;font-size:30px;font-weight:800;line-height:1;letter-spacing:-.01em;}
+.brand h1 span{color:var(--gold);}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:15px;}
+.top-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+.btn{border:1px solid var(--rule);background:var(--surface);border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:15px;}
+.btn:hover{background:var(--surface-2);}
+.go{
+  display:flex;align-items:center;gap:12px;border:0;border-radius:10px;cursor:pointer;
+  background:var(--green);color:var(--on-green);padding:14px 22px;font-size:20px;font-weight:800;
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.25), 0 0 0 2px var(--gold);
+}
+.go:hover{background:var(--green-hi);}
+.go .dot{width:12px;height:12px;border-radius:50%;background:var(--tally);}
+.go kbd{font-family:inherit;font-weight:500;font-size:14px;opacity:.8;}
+
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:20px;align-items:start;}
+@media (max-width:860px){.grid{grid-template-columns:1fr;}}
+
+.script{background:var(--surface);border:1px solid var(--rule);border-radius:12px;overflow:hidden;}
+.script-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--rule);background:var(--surface-2);}
+.script-bar .tools{display:flex;gap:6px;flex-wrap:wrap;}
+.script-bar .btn{padding:6px 11px;font-size:14px;}
+textarea{
+  display:block;width:100%;min-height:60vh;resize:vertical;border:0;padding:18px 20px;background:var(--surface);
+  font-family:"Atkinson Hyperlegible",Verdana,Tahoma,sans-serif;font-size:17px;line-height:1.6;
+}
+textarea:focus-visible{outline:none;box-shadow:inset 0 0 0 3px var(--focus);}
+.stats{display:flex;gap:18px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--rule);color:var(--muted);font-size:15px;}
+.stats b{color:var(--ink);font-weight:700;}
+
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:16px 16px 6px;}
+.panel h2{margin:0 0 12px;font-size:19px;font-weight:700;}
+.ctl{margin-bottom:14px;}
+.ctl label{display:flex;justify-content:space-between;font-weight:600;font-size:15px;margin-bottom:4px;}
+.ctl output{color:var(--muted);font-weight:500;}
+input[type=range]{width:100%;accent-color:var(--green);}
+.checks{display:grid;gap:8px;margin:4px 0 16px;}
+.checks label{display:flex;align-items:center;gap:9px;font-size:15px;cursor:pointer;}
+.checks input{width:18px;height:18px;accent-color:var(--green);}
+.hint{font-size:13.5px;color:var(--muted);margin:-6px 0 0 27px;}
+
+details{border-top:1px solid var(--rule);padding:10px 0;}
+summary{cursor:pointer;font-weight:700;}
+.keylist{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;margin:10px 0 4px;font-size:14.5px;}
+.keylist kbd,.fmt code{
+  font-family:inherit;font-weight:700;background:var(--surface-2);border:1px solid var(--rule);
+  border-radius:5px;padding:0 6px;white-space:nowrap;justify-self:start;
+}
+.fmt{font-size:14.5px;margin:10px 0 4px;}
+.fmt p{margin:0 0 8px;}
+
+.start-row{display:flex;justify-content:flex-end;margin-top:16px;}
+
+/* ---------- Prompter ---------- */
+#prompter{position:fixed;inset:0;background:#000;color:#f6f6f2;overflow:hidden;display:none;z-index:100;touch-action:none;}
+#prompter.show{display:block;}
+#prompter.idle{cursor:none;}
+#stage{position:absolute;inset:0;transform-origin:50% 50%;}
+#scroller{position:absolute;left:0;right:0;top:0;will-change:transform;}
+#ptext{
+  margin:0 auto;font-family:"Atkinson Hyperlegible",Verdana,Tahoma,sans-serif;line-height:1.38;font-weight:400;
+  overflow-wrap:break-word;
+}
+#ptext.caps{text-transform:uppercase;}
+#ptext p{margin:0 0 .85em;}
+#ptext .who{color:#f2c14e;font-weight:700;}
+#ptext .cuetxt{color:#7fd6a2;font-style:italic;font-size:.72em;}
+#ptext .seg{display:flex;align-items:center;gap:.5em;margin:.6em 0 1em;color:#f2c14e;font-weight:700;font-size:.62em;}
+#ptext .seg::before,#ptext .seg::after{content:"";flex:1;height:3px;background:#3c5c47;}
+#ptext .seg:empty::before{flex:1;}
+#ptext .end{text-align:center;color:#e0392b;font-weight:700;font-size:.7em;margin-top:1em;}
+#cueline{position:absolute;left:0;right:0;pointer-events:none;background:rgba(255,255,255,.06);}
+#cueline::before,#cueline::after{
+  content:"";position:absolute;top:50%;width:0;height:0;border:18px solid transparent;transform:translateY(-50%);
+}
+#cueline::before{left:6px;border-left:26px solid #f2c14e;border-right:0;}
+#cueline::after{right:6px;border-right:26px solid #f2c14e;border-left:0;}
+#count{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-family:"Atkinson Hyperlegible",sans-serif;font-weight:700;font-size:38vh;color:#f2c14e;background:rgba(0,0,0,.72);}
+#count.on{display:flex;}
+
+#hud{
+  position:absolute;left:0;right:0;top:0;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:16px;color:#c9d2cb;
+  background:linear-gradient(rgba(0,0,0,.85),rgba(0,0,0,0));transition:opacity .35s;
+}
+#prompter.idle #hud,#prompter.nohud #hud{opacity:0;}
+#prompter.nohud.wake #hud{opacity:1;}
+.hud-l{display:flex;gap:16px;flex-wrap:wrap;align-items:center;}
+#hState{font-weight:800;}
+#hState.live{color:#ff5a4a;}
+.hud-r{display:flex;gap:8px;}
+.hud-r button{background:#1d2a22;border:1px solid #3c5c47;color:#f6f6f2;border-radius:7px;padding:5px 12px;cursor:pointer;font-weight:600;}
+#prog{position:absolute;left:0;right:0;bottom:0;height:5px;background:#111;}
+#prog i{display:block;height:100%;width:0;background:#d4a72c;}
+#keys{
+  position:absolute;right:14px;top:calc(56px + env(safe-area-inset-top,0px));width:min(340px,calc(100% - 28px));
+  background:#121a15;border:1px solid #3c5c47;border-radius:10px;padding:14px 16px;color:#e8eee8;font-size:15px;
+}
+#keys[hidden]{display:none;}
+#keys .keylist kbd{background:#1d2a22;border-color:#3c5c47;color:#f2c14e;}
+#keys h3{margin:0 0 4px;font-size:17px;}
+
+@media (prefers-reduced-motion: reduce){#hud{transition:none;}}
+</style>
+</head>
+<body>
+
+<div class="app" id="editor">
+  <header class="top">
+    <div class="brand">
+      <div class="tally" aria-hidden="true"></div>
+      <div>
+        <h1>PH1 <span>Prompter</span></h1>
+        <p>Paste the script, hit go, read the glass.</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="themeBtn" type="button">Theme: auto</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="script" aria-label="Script">
+      <div class="script-bar">
+        <strong>Script</strong>
+        <div class="tools">
+          <button class="btn" id="openBtn" type="button">Open .txt</button>
+          <button class="btn" id="tidyBtn" type="button">Tidy pasted text</button>
+          <button class="btn" id="clearBtn" type="button">Clear</button>
+          <input type="file" id="fileIn" accept=".txt,.md,text/plain" hidden>
+        </div>
+      </div>
+      <textarea id="src" spellcheck="true" aria-label="Script text" placeholder="Paste your script here. Copy it straight out of Google Docs: select all, copy, then paste."></textarea>
+      <div class="stats" aria-live="polite">
+        <span><b id="stWords">0</b> spoken words</span>
+        <span>about <b id="stTime">0:00</b> on air</span>
+        <span><b id="stSegs">0</b> segments</span>
+        <span id="stWho"></span>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Prompter settings">
+      <h2>Settings</h2>
+      <div class="ctl">
+        <label for="fontSize">Text size <output id="oFont"></output></label>
+        <input type="range" id="fontSize" min="28" max="160" step="2">
+      </div>
+      <div class="ctl">
+        <label for="speed">Starting speed <output id="oSpeed"></output></label>
+        <input type="range" id="speed" min="1" max="20" step="1">
+      </div>
+      <div class="ctl">
+        <label for="width">Line width <output id="oWidth"></output></label>
+        <input type="range" id="width" min="40" max="100" step="2">
+      </div>
+      <div class="ctl">
+        <label for="cue">Reading line height <output id="oCue"></output></label>
+        <input type="range" id="cue" min="15" max="55" step="1">
+      </div>
+      <div class="checks">
+        <label><input type="checkbox" id="mirror"> Mirror text</label>
+        <p class="hint">Turn on for a beam-splitter glass rig so the reflection reads correctly.</p>
+        <label><input type="checkbox" id="flip"> Flip upside down</label>
+        <label><input type="checkbox" id="caps"> All caps</label>
+        <label><input type="checkbox" id="countdown"> 3-2-1 countdown before scrolling</label>
+        <label><input type="checkbox" id="fullscreen"> Go fullscreen on start</label>
+      </div>
+
+      <details>
+        <summary>Script formatting</summary>
+        <div class="fmt">
+          <p><code>## SPORTS</code> starts a labeled segment.</p>
+          <p><code>---</code> on its own line adds a plain segment break.</p>
+          <p><code>John:</code> at the start of a line marks who’s talking. Each speaker gets their own color and starts a new paragraph. A name has to show up at least twice (or be in all caps) to count, so a stray “Note:” isn’t mistaken for a person.</p>
+          <p><code>[ROLL PACKAGE]</code> shows a small green cue that talent doesn’t read aloud.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Keyboard and remote</summary>
+        <div class="keylist">
+          <kbd>Space</kbd><span>Play / pause</span>
+          <kbd>↑ ↓</kbd><span>Faster / slower</span>
+          <kbd>PgDn PgUp</kbd><span>Jump ahead / back (clicker buttons)</span>
+          <kbd>← →</kbd><span>Nudge back / ahead</span>
+          <kbd>+ −</kbd><span>Bigger / smaller text</span>
+          <kbd>M</kbd><span>Mirror on / off</span>
+          <kbd>R</kbd><span>Back to the top</span>
+          <kbd>F</kbd><span>Fullscreen</span>
+          <kbd>H</kbd><span>Hide the status bar</span>
+          <kbd>E</kbd><span>Exit to the editor</span>
+        </div>
+        <p class="hint" style="margin:6px 0 0">Mouse wheel or a finger drag scrolls by hand. On a tablet, tap to play / pause.</p>
+      </details>
+    </aside>
+  </div>
+
+  <div class="start-row">
+    <button class="go" id="goBtn" type="button"><span class="dot" aria-hidden="true"></span>Start prompting <kbd>Ctrl + Enter</kbd></button>
+  </div>
+</div>
+
+<div id="prompter" aria-hidden="true">
+  <div id="stage">
+    <div id="scroller"><div id="ptext"></div></div>
+    <div id="cueline"></div>
+    <div id="count"></div>
+  </div>
+  <div id="hud">
+    <div class="hud-l">
+      <span id="hState">Paused</span>
+      <span id="hSpeed"></span>
+      <span id="hTime">0:00</span>
+      <span id="hFlags"></span>
+    </div>
+    <div class="hud-r">
+      <button type="button" id="hHelp">Keys</button>
+      <button type="button" id="hExit">Exit</button>
+    </div>
+  </div>
+  <div id="keys" hidden>
+    <h3>Controls</h3>
+    <div class="keylist">
+      <kbd>Space</kbd><span>Play / pause</span>
+      <kbd>↑ ↓</kbd><span>Faster / slower</span>
+      <kbd>PgDn PgUp</kbd><span>Jump ahead / back</span>
+      <kbd>← →</kbd><span>Nudge back / ahead</span>
+      <kbd>+ −</kbd><span>Text size</span>
+      <kbd>M / V</kbd><span>Mirror / flip</span>
+      <kbd>R</kbd><span>Back to the top</span>
+      <kbd>F</kbd><span>Fullscreen</span>
+      <kbd>H</kbd><span>Hide status bar</span>
+      <kbd>E / Esc</kbd><span>Exit</span>
+    </div>
+  </div>
+  <div id="prog"><i></i></div>
+</div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const KEY = 'ph1prompter:v1';
+  const SAMPLE =
+`## OPENING
+ANCHOR 1: Good morning, Patriots, and welcome to PH1!
+ANCHOR 2: I’m [NAME], and here’s what’s happening at Henry this week.
+
+[ROLL OPEN]
+
+## ANNOUNCEMENTS
+ANCHOR 1: Club fair is this Thursday at lunch in the quad. Stop by, find your people, and maybe grab a free sticker or two.
+
+ANCHOR 2: Seniors, a reminder that portrait retakes are next Tuesday in the library.
+
+## SPORTS
+REPORTER: Our girls’ volleyball team wrapped up the regular season with a big home win on Friday night.
+
+[ROLL PACKAGE]
+
+---
+
+ANCHOR 1: That’s our show. Have a great week, Patriots!`;
+
+  const defaults = { script:SAMPLE, fontSize:72, speed:5, width:84, cue:33, mirror:false, flip:false, caps:false, countdown:true, fullscreen:true, theme:'auto' };
+  let S = Object.assign({}, defaults);
+  try { const raw = localStorage.getItem(KEY); if (raw) Object.assign(S, JSON.parse(raw)); } catch(e){}
+  let saveTimer = null;
+  function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }, 250); }
+
+  /* ---------- Theme ---------- */
+  const themeBtn = $('#themeBtn');
+  function applyTheme(){
+    if (S.theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', S.theme);
+    themeBtn.textContent = 'Theme: ' + S.theme;
+  }
+  themeBtn.addEventListener('click', ()=>{
+    S.theme = S.theme === 'auto' ? 'light' : S.theme === 'light' ? 'dark' : 'auto';
+    applyTheme(); save();
+  });
+  applyTheme();
+
+  /* ---------- Editor ---------- */
+  const src = $('#src');
+  src.value = S.script;
+  function updateStats(){
+    const t = src.value;
+    const who = detectSpeakers(t);
+    const spoken = t.split('\n')
+      .filter(l => !/^\s*(#|-{3,}\s*$)/.test(l))
+      .map(l => { const s = splitSpeaker(l.trim(), who); return (s ? s.text : l).replace(/\[[^\]]*\]/g,' '); })
+      .join(' ');
+    const words = (spoken.match(/[\w’']+/g) || []).length;
+    const secs = Math.round(words / 150 * 60);
+    $('#stWords').textContent = words;
+    $('#stTime').textContent = Math.floor(secs/60) + ':' + String(secs%60).padStart(2,'0');
+    const segs = t.split('\n').filter(l => /^\s*(#+\s*\S|-{3,}\s*$)/.test(l)).length;
+    $('#stSegs').textContent = segs;
+    const names = [...who.values()].map(v => v.name);
+    $('#stWho').textContent = names.length ? 'Speakers: ' + names.join(', ') : '';
+  }
+  src.addEventListener('input', ()=>{ S.script = src.value; save(); updateStats(); });
+  updateStats();
+
+  $('#tidyBtn').addEventListener('click', ()=>{
+    src.value = src.value
+      .replace(/\r\n?/g,'\n').replace(/\t/g,' ').replace(/\u00a0/g,' ')
+      .replace(/[ ]+$/gm,'').replace(/^[ ]+/gm,'')
+      .replace(/\n{3,}/g,'\n\n').trim();
+    S.script = src.value; save(); updateStats();
+  });
+  $('#clearBtn').addEventListener('click', ()=>{
+    if (!src.value.trim() || confirm('Clear the whole script?')) { src.value=''; S.script=''; save(); updateStats(); src.focus(); }
+  });
+  $('#openBtn').addEventListener('click', ()=> $('#fileIn').click());
+  $('#fileIn').addEventListener('change', async e=>{
+    const f = e.target.files[0]; if (!f) return;
+    src.value = await f.text(); S.script = src.value; save(); updateStats(); e.target.value='';
+  });
+
+  /* ---------- Settings ---------- */
+  const ranges = [
+    ['fontSize','#oFont', v=>v+' px'],
+    ['speed','#oSpeed', v=>v],
+    ['width','#oWidth', v=>v+'%'],
+    ['cue','#oCue', v=>v+'% from top'],
+  ];
+  ranges.forEach(([id,out,fmt])=>{
+    const el = $('#'+id);
+    el.value = S[id]; $(out).textContent = fmt(S[id]);
+    el.addEventListener('input', ()=>{ S[id] = +el.value; $(out).textContent = fmt(S[id]); save(); });
+  });
+  ['mirror','flip','caps','countdown','fullscreen'].forEach(id=>{
+    const el = $('#'+id); el.checked = !!S[id];
+    el.addEventListener('change', ()=>{ S[id] = el.checked; save(); });
+  });
+  function syncControls(){
+    ranges.forEach(([id,out,fmt])=>{ $('#'+id).value = S[id]; $(out).textContent = fmt(S[id]); });
+    ['mirror','flip','caps'].forEach(id=> $('#'+id).checked = !!S[id]);
+  }
+
+  /* ---------- Script rendering ---------- */
+  function esc(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function fmt(s){ return esc(s).replace(/\[([^\]]+)\]/g,'<span class="cuetxt">[$1]</span>'); }
+  function matchLabel(line){
+    const m = line.match(/^([A-Za-z][A-Za-z0-9.'’&-]*(?: [A-Za-z0-9.'’&-]+){0,2})\s*:\s*(.*)$/);
+    if (!m || m[1].length > 24 || /^\/\//.test(m[2])) return null;
+    return { name:m[1], key:m[1].toLowerCase(), text:m[2] };
+  }
+  function detectSpeakers(text){
+    const palette = ['#f2c14e','#7cc4ff','#ff9f80','#c7a8ff','#ffe08a','#ff8fc7'];
+    const counts = new Map(), order = [];
+    text.replace(/\r\n?/g,'\n').split('\n').forEach(l => {
+      const m = matchLabel(l.trim()); if (!m) return;
+      if (!counts.has(m.key)){
+        counts.set(m.key, { name:m.name, n:0, caps: m.name === m.name.toUpperCase() && /[A-Z]/.test(m.name) });
+        order.push(m.key);
+      }
+      counts.get(m.key).n++;
+    });
+    const who = new Map();
+    order.forEach(k => {
+      const c = counts.get(k);
+      if (c.n >= 2 || c.caps) who.set(k, { name:c.name, color: palette[who.size % palette.length] });
+    });
+    return who;
+  }
+  function splitSpeaker(line, who){
+    const m = matchLabel(line);
+    if (!m || !who.has(m.key)) return null;
+    return { sp: who.get(m.key), text: m.text };
+  }
+  function renderScript(text){
+    const who = detectSpeakers(text);
+    const lines = text.replace(/\r\n?/g,'\n').split('\n');
+    let html = '', para = [];
+    const flush = ()=>{ if (para.length){ html += '<p>'+para.join('<br>')+'</p>'; para = []; } };
+    for (const raw of lines){
+      const line = raw.trim();
+      if (!line){ flush(); continue; }
+      if (/^-{3,}$/.test(line)){ flush(); html += '<div class="seg"></div>'; continue; }
+      const h = line.match(/^#+\s*(.+)$/);
+      if (h){ flush(); html += '<div class="seg">'+fmt(h[1])+'</div>'; continue; }
+      const s = splitSpeaker(line, who);
+      if (s){ flush(); para.push('<span class="who" style="color:'+s.sp.color+'">'+esc(s.sp.name.toUpperCase())+':</span> '+fmt(s.text)); continue; }
+      para.push(fmt(line));
+    }
+    flush();
+    return html + '<div class="end" id="endMark">■ END ■</div>';
+  }
+
+  /* ---------- Prompter engine ---------- */
+  const P = $('#prompter'), stage = $('#stage'), scroller = $('#scroller'), ptext = $('#ptext');
+  const cueline = $('#cueline'), countEl = $('#count'), progBar = $('#prog i');
+  let pos = 0, maxPos = 1, cuePx = 0, playing = false, counting = false, countTimer = null;
+  let last = null, elapsed = 0, open = false, wakeLock = null, idleTimer = null;
+
+  function speedPx(){ return S.speed * 9 * (S.fontSize / 72); }
+  function layout(keepRatio){
+    const ratio = maxPos > 0 ? pos / maxPos : 0;
+    const vh = window.innerHeight;
+    cuePx = Math.round(vh * S.cue / 100);
+    ptext.style.fontSize = S.fontSize + 'px';
+    ptext.style.maxWidth = S.width + '%';
+    ptext.style.paddingTop = cuePx + 'px';
+    ptext.style.paddingBottom = vh + 'px';
+    ptext.classList.toggle('caps', !!S.caps);
+    const lh = S.fontSize * 1.38;
+    cueline.style.top = cuePx + 'px';
+    cueline.style.height = lh + 'px';
+    stage.style.transform = 'scale(' + (S.mirror ? -1 : 1) + ',' + (S.flip ? -1 : 1) + ')';
+    const end = document.getElementById('endMark');
+    maxPos = end ? Math.max(1, end.offsetTop - cuePx) : 1;
+    if (keepRatio) pos = ratio * maxPos;
+    clamp(); paint(); hud();
+  }
+  function clamp(){ pos = Math.min(Math.max(pos, 0), maxPos); }
+  function paint(){
+    scroller.style.transform = 'translate3d(0,' + (-pos) + 'px,0)';
+    progBar.style.width = (pos / maxPos * 100).toFixed(2) + '%';
+  }
+  function fmtTime(ms){ const s = Math.floor(ms/1000); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); }
+  function hud(){
+    const st = $('#hState');
+    st.textContent = counting ? 'Get ready' : playing ? '● Live' : pos >= maxPos ? 'End' : 'Paused';
+    st.classList.toggle('live', playing);
+    $('#hSpeed').textContent = 'Speed ' + S.speed;
+    $('#hTime').textContent = fmtTime(elapsed);
+    const flags = [];
+    if (S.mirror) flags.push('Mirrored'); if (S.flip) flags.push('Flipped'); flags.push(S.fontSize + ' px');
+    $('#hFlags').textContent = flags.join(', ');
+  }
+  function tick(t){
+    if (!playing){ last = null; return; }
+    if (last !== null){
+      const dt = Math.min(t - last, 100);
+      pos += speedPx() * dt / 1000;
+      elapsed += dt;
+    }
+    last = t;
+    if (pos >= maxPos){ pos = maxPos; paint(); pause(); return; }
+    paint();
+    if (Math.floor(elapsed/250) !== Math.floor((elapsed - 16)/250)) hud();
+    requestAnimationFrame(tick);
+  }
+  function play(){
+    if (playing || counting) return;
+    if (pos >= maxPos) return;
+    if (S.countdown && pos < 2){
+      counting = true; let n = 3;
+      countEl.textContent = n; countEl.classList.add('on'); hud();
+      countTimer = setInterval(()=>{
+        n--;
+        if (n > 0){ countEl.textContent = n; return; }
+        clearInterval(countTimer); countEl.classList.remove('on'); counting = false; go();
+      }, 1000);
+    } else go();
+  }
+  function go(){ playing = true; last = null; hud(); requestAnimationFrame(tick); wake(); }
+  function pause(){
+    if (counting){ clearInterval(countTimer); counting = false; countEl.classList.remove('on'); }
+    playing = false; hud(); wake();
+  }
+  function toggle(){ (playing || counting) ? pause() : play(); }
+  function nudge(px){ pos += px; clamp(); paint(); hud(); wake(); }
+  function setSpeed(d){ S.speed = Math.min(20, Math.max(1, S.speed + d)); save(); syncControls(); hud(); wake(); }
+  function setFont(d){ S.fontSize = Math.min(160, Math.max(28, S.fontSize + d)); save(); syncControls(); layout(true); wake(); }
+
+  function wake(){
+    P.classList.remove('idle'); P.classList.add('wake');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(()=>{ P.classList.remove('wake'); if (playing) P.classList.add('idle'); }, 2500);
+  }
+
+  async function enter(){
+    S.script = src.value; save();
+    ptext.innerHTML = renderScript(src.value);
+    pos = 0; elapsed = 0; playing = false; counting = false;
+    P.classList.add('show'); P.setAttribute('aria-hidden','false'); open = true;
+    document.body.style.overflow = 'hidden';
+    if (S.fullscreen && document.documentElement.requestFullscreen && !document.fullscreenElement){
+      try { await document.documentElement.requestFullscreen(); } catch(e){}
+    }
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+    if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(e){} }
+    layout(false); wake();
+  }
+  function exit(){
+    pause(); open = false;
+    P.classList.remove('show','idle','wake'); P.setAttribute('aria-hidden','true');
+    $('#keys').hidden = true;
+    document.body.style.overflow = '';
+    if (document.fullscreenElement && document.exitFullscreen){ document.exitFullscreen().catch(()=>{}); }
+    try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch(e){}
+    $('#goBtn').focus();
+  }
+  function toggleFull(){
+    if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
+  }
+
+  $('#goBtn').addEventListener('click', enter);
+  $('#hExit').addEventListener('click', e=>{ e.stopPropagation(); exit(); });
+  $('#hHelp').addEventListener('click', e=>{ e.stopPropagation(); const k=$('#keys'); k.hidden = !k.hidden; wake(); });
+  ['pointerdown','pointerup'].forEach(ev=>{
+    $('#hud').addEventListener(ev, e=>e.stopPropagation());
+    $('#keys').addEventListener(ev, e=>e.stopPropagation());
+  });
+
+  window.addEventListener('keydown', e=>{
+    if (!open){
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter'){ e.preventDefault(); enter(); }
+      return;
+    }
+    const line = S.fontSize * 1.38;
+    const k = e.key;
+    let handled = true;
+    if (k === ' ' || k === 'b' || k === 'B' || k === '.') toggle();
+    else if (k === 'ArrowUp') setSpeed(1);
+    else if (k === 'ArrowDown') setSpeed(-1);
+    else if (k === 'PageDown') nudge(line * 3);
+    else if (k === 'PageUp') nudge(-line * 3);
+    else if (k === 'ArrowRight') nudge(line);
+    else if (k === 'ArrowLeft') nudge(-line);
+    else if (k === '+' || k === '=') setFont(4);
+    else if (k === '-' || k === '_') setFont(-4);
+    else if (k === 'm' || k === 'M'){ S.mirror = !S.mirror; save(); syncControls(); layout(true); wake(); }
+    else if (k === 'v' || k === 'V'){ S.flip = !S.flip; save(); syncControls(); layout(true); wake(); }
+    else if (k === 'r' || k === 'R' || k === 'Home'){ pause(); pos = 0; elapsed = 0; paint(); hud(); }
+    else if (k === 'End'){ pause(); pos = maxPos; paint(); hud(); }
+    else if (k === 'f' || k === 'F') toggleFull();
+    else if (k === 'h' || k === 'H'){ P.classList.toggle('nohud'); wake(); }
+    else if (k === 'e' || k === 'E' || k === 'Escape') exit();
+    else if (k === '?' ){ const kk=$('#keys'); kk.hidden = !kk.hidden; wake(); }
+    else handled = false;
+    if (handled) e.preventDefault();
+  });
+
+  P.addEventListener('wheel', e=>{ e.preventDefault(); nudge(e.deltaY); }, {passive:false});
+  P.addEventListener('mousemove', wake);
+  let drag = null;
+  P.addEventListener('pointerdown', e=>{ drag = { y:e.clientY, start:e.clientY, moved:false }; P.setPointerCapture(e.pointerId); });
+  P.addEventListener('pointermove', e=>{
+    if (!drag) return;
+    const dy = e.clientY - drag.y; drag.y = e.clientY;
+    if (Math.abs(e.clientY - drag.start) > 8) drag.moved = true;
+    if (drag.moved) nudge(S.flip ? dy : -dy);
+  });
+  P.addEventListener('pointerup', ()=>{ if (drag && !drag.moved) { toggle(); wake(); } drag = null; });
+  P.addEventListener('pointercancel', ()=>{ drag = null; });
+
+  window.addEventListener('resize', ()=>{ if (open) layout(true); });
+  document.addEventListener('visibilitychange', async ()=>{
+    if (open && document.visibilityState === 'visible' && 'wakeLock' in navigator){
+      try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+    }
+  });
+})();
+</script>
+</body>
+</html>
